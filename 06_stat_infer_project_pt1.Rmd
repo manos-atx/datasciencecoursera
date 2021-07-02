@@ -1,0 +1,69 @@
+---
+title: "Statistical Inference Course Project"
+author: "Emmanouil Kalaitzakis"
+date: "`r Sys.time()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a report for the final project of the Statistical Inference course
+offered by Johns Hopkins University on Coursera. This project is split into two
+parts:
+
+- The first part involves a simulation exercise intended towards
+understanding the properties of the distribution of the sum of a number of
+independent and identically distributed exponential random variables.
+- The second part
+involves the exploration of a data set, some statistical testing, and a
+discussion of the assumptions supporting the application of the methods. 
+
+## Part 1: Simulation Exercise
+
+To perform the simulation we create a random matrix where each row is a 
+simulation iteration and each column is one sample.
+
+```{r simulation}
+n <- 40
+lambda <- 0.2
+mu <- 1/lambda
+sigma <- 1/lambda
+
+iter <- 1000
+
+set.seed(1)
+mc <- matrix(data = rexp(iter*n, lambda), nrow = iter, ncol = n, byrow = FALSE)
+
+mus <- apply(mc, 1, mean)
+```
+
+The sample mean of the distribution is `r mean(mus)` while the theoretical mean of the distribution is `r mu`. The variance of the distribution is `r var(mus)` while the theoretical variance of the distribution is `r (sigma/sqrt(n))^2`. We can explore the distribution visually with the help of a histogram and a vertical line centered at the sample mean.
+
+```{r}
+library(ggplot2)
+
+ggplot(data.frame(means = mus), aes(means)) +
+  geom_histogram() +
+  geom_vline(xintercept = mean(mus)) +
+  ggtitle("Distribution of sample means")
+```
+
+To check whether the distribution is approximately normal, we plot it against a normal ditribution with the theoretical mean and variance. We also perform a Shapiro-Wilk normality test to support our finding.
+
+```{r}
+ggplot(data.frame(means = mus), aes(means)) +
+  geom_density(aes(colour = "Sampling")) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma/sqrt(n)), aes(colour = "Normal")) +
+  labs(colour = "Distribution") +
+  ggtitle("Visual comparison with a normal distribution")
+```
+
+```{r}
+shapiro.test(mus)
+```
+
+We observe that the sampling distibution is quite similar to the normal. The Shapiro-Wilk test supports this finding further since the p-value is much smaller than 0.1 which is threshold for the distribution to be considered approximately normal.
