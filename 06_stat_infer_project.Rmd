@@ -1,0 +1,113 @@
+---
+title: "Statistical Inference Course Project"
+author: "Emmanouil Kalaitzakis"
+date: "`r Sys.time()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a report for the final project of the Statistical Inference course
+offered by Johns Hopkins University on Coursera. This project is split into two
+parts:
+
+- The first part involves a simulation exercise intended towards
+understanding the properties of the distribution of the sum of a number of
+independent and identically distributed exponential random variables.
+- The second part
+involves the exploration of a data set, some statistical testing, and a
+discussion of the assumptions supporting the application of the methods. 
+
+## Part 1: Simulation Exercise
+
+To perform the simulation we create a random matrix where each row is a 
+simulation iteration and each column is one sample.
+
+```{r simulation}
+n <- 40
+lambda <- 0.2
+mu <- 1/lambda
+sigma <- 1/lambda
+
+iter <- 1000
+
+set.seed(1)
+mc <- matrix(data = rexp(iter*n, lambda), nrow = iter, ncol = n, byrow = FALSE)
+
+mus <- apply(mc, 1, mean)
+```
+
+The sample mean of the distribution is `r mean(mus)` while the theoretical mean of the distribution is `r mu`. The variance of the distribution is `r var(mus)` while the theoretical variance of the distribution is `r (sigma/sqrt(n))^2`. We can explore the distribution visually with the help of a histogram and a vertical line centered at the sample mean.
+
+```{r}
+library(ggplot2)
+
+ggplot(data.frame(means = mus), aes(means)) +
+  geom_histogram() +
+  geom_vline(xintercept = mean(mus)) +
+  ggtitle("Distribution of sample means")
+```
+
+To check whether the distribution is approximately normal, we plot it against a normal ditribution with the theoretical mean and variance. We also perform a Shapiro-Wilk normality test to support our finding.
+
+```{r}
+ggplot(data.frame(means = mus), aes(means)) +
+  geom_density(aes(colour = "Sampling")) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma/sqrt(n)), aes(colour = "Normal")) +
+  labs(colour = "Distribution") +
+  ggtitle("Visual comparison with a normal distribution")
+```
+
+```{r}
+shapiro.test(mus)
+```
+
+We observe that the sampling distibution is quite similar to the normal. The Shapiro-Wilk test supports this finding further since the p-value is much smaller than 0.1 which is threshold for the distribution to be considered approximately normal.
+
+## Part 2: Basic Inferential Data Analysis
+
+The first step in the second part is to load the `ToothGrowth` dataset and perform some basic exploratory analysis using the `str` and `summary` functions.
+
+```{r}
+library(datasets)
+str(ToothGrowth)
+summary(ToothGrowth)
+```
+
+The dataframe consists of 3 variables:
+
+- The response variable `len` which is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs,
+- `supp`, one of two delivery methods of Vitamin C, orange juice or ascorbic acid (a form of vitamin C and coded as VC), 
+- and `dose`, the dose levels of vitamin C (0.5, 1, and 2 mg/day) received.
+
+We are interested in investigating how the various dose levels effect the odontoblast length controlling for supplement type. We create all variable combinations and plot the boxplots.
+
+```{r}
+library(tidyr)
+ggplot(ToothGrowth %>% unite(supp_dose, supp:dose), aes(y = len)) + 
+  geom_boxplot(aes(x = supp_dose))
+```
+
+We observe that the dose level is critical for both delivery methods but it is super-critical for the `VC` method. Next we are going to test whether the difference in group means of the `len` variable is statistically significant for the two `supp` groups and the three `dose` groups. Let's take a look to the group means and standard deviations.
+
+```{r}
+tapply(ToothGrowth$len, list(ToothGrowth$supp, ToothGrowth$dose), mean)
+tapply(ToothGrowth$len, list(ToothGrowth$supp, ToothGrowth$dose), sd)
+```
+
+We observe that `VC` performs at par with `OJ` at the 2 mg/day level while it is inferior in smaller doses. We proceed with the `len ~ supp` t.test controlling for the dose. The second table indicates why it is fit for our analysis to assume unequal variances.
+
+```{r}
+t.test(len ~ supp, ToothGrowth[ToothGrowth$dose == 0.5,])
+t.test(len ~ supp, ToothGrowth[ToothGrowth$dose == 1,])
+t.test(len ~ supp, ToothGrowth[ToothGrowth$dose == 2,])
+```
+
+Since the p-value is smaller than 0.05 and the 95% confidence interval excludes 0, we reject the null hypothesis that states that the means of the two groups are equal in favor of the alternative hypothesis which states that the `OJ` group mean is different (larger) than the `VC` group mean for the smaller two doses. As suspected this is not the case for the 2 mg/day dose where the two supplements perform in a similar manner.
+
+Based on evidence we have assumed that variances are not equal between groups. We are also assuming that the observations are not paired since we have no such information. Finally, we are assuming that the group means are independent and identically distributed and they follow a (approximately) normal distribution.
+
